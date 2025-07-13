@@ -54,9 +54,9 @@ export default function Index() {
   }
 
   // Redirect based on onboarding status
-  if (hasCompletedOnboarding) {
-    return <Redirect href="/(tabs)" />;
-  } else {
-    return <Redirect href="/onboarding" />;
-  }
+  //   if (hasCompletedOnboarding) {
+  //     return <Redirect href="/(tabs)" />;
+  //   } else {
+  return <Redirect href="/onboarding" />;
+  //   }
 }

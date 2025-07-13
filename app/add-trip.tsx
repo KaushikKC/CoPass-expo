@@ -1,4 +1,5 @@
 import { useTheme } from "@/hooks/useTheme";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -20,6 +21,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -85,9 +87,8 @@ export default function AddTripScreen() {
   const [showPreferences, setShowPreferences] = useState(false);
   const [showCustomPurpose, setShowCustomPurpose] = useState(false);
   const [customPurpose, setCustomPurpose] = useState("");
-  const [showCustomDateInput, setShowCustomDateInput] = useState(false);
-  const [customDateInput, setCustomDateInput] = useState("");
-  const [customDateType, setCustomDateType] = useState<"start" | "end">(
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerType, setDatePickerType] = useState<"start" | "end">(
     "start"
   );
 
@@ -184,9 +185,8 @@ export default function AddTripScreen() {
         {
           text: "Custom Date",
           onPress: () => {
-            setCustomDateType(type);
-            setCustomDateInput("");
-            setShowCustomDateInput(true);
+            setDatePickerType(type);
+            setShowDatePicker(true);
           },
         },
         {
@@ -875,47 +875,70 @@ export default function AddTripScreen() {
       </Modal>
 
       {/* Custom Date Input Modal */}
-      <Modal
-        visible={showCustomDateInput}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowCustomDateInput(false)}
-      >
-        <View style={styles.modalOverlay}>
+      {Platform.OS === "android" && showDatePicker && (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
           <View
-            style={[styles.modalContent, { backgroundColor: colors.surface }]}
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: "rgba(0,0,0,0.3)",
+            }}
           >
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Enter Date
-              </Text>
-              <TouchableOpacity onPress={() => setShowCustomDateInput(false)}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={[
-                styles.modalInput,
-                { color: colors.text, borderColor: colors.border },
-              ]}
-              placeholder="Enter date (MM/DD/YYYY)"
-              placeholderTextColor={colors.textSecondary}
-              value={customDateInput}
-              onChangeText={setCustomDateInput}
-              keyboardType="numeric"
-              maxLength={10}
-            />
-
-            <TouchableOpacity
-              style={[styles.modalButton, { backgroundColor: colors.primary }]}
-              onPress={handleCustomDateSubmit}
+            <View
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 12,
+                padding: 16,
+                width: "90%",
+              }}
             >
-              <Text style={styles.modalButtonText}>Set Date</Text>
-            </TouchableOpacity>
+              <DateTimePicker
+                value={tripData.dates[datePickerType] || new Date()}
+                mode="date"
+                display="calendar"
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (selectedDate) {
+                    setTripData((prev) => ({
+                      ...prev,
+                      dates: {
+                        ...prev.dates,
+                        [datePickerType]: selectedDate,
+                      },
+                    }));
+                  }
+                }}
+              />
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
+      {Platform.OS === "ios" && showDatePicker && (
+        <DateTimePicker
+          value={tripData.dates[datePickerType] || new Date()}
+          mode="date"
+          display="spinner"
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(false);
+            if (selectedDate) {
+              setTripData((prev) => ({
+                ...prev,
+                dates: {
+                  ...prev.dates,
+                  [datePickerType]: selectedDate,
+                },
+              }));
+            }
+          }}
+          style={{ width: "100%" }}
+        />
+      )}
     </SafeAreaView>
   );
 }

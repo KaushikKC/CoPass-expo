@@ -29,6 +29,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAccount } from "wagmi";
 import { PhotoResult, photoService } from "../services/photoService";
 
 const { width } = Dimensions.get("window");
@@ -98,6 +99,7 @@ export default function OnboardingScreen() {
   const [currentStep, setCurrentStep] = useState(ONBOARDING_STEPS.WELCOME);
   const [currentSlide, setCurrentSlide] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const { isConnected } = useAccount();
 
   // Signup form state
   const [signupData, setSignupData] = useState({
@@ -155,8 +157,8 @@ export default function OnboardingScreen() {
         );
         return;
       }
-      // Optional: Check if wallet is connected
-      if (!isWalletConnected) {
+      // Use wagmi's isConnected for wallet validation
+      if (!isConnected) {
         Alert.alert(
           "Wallet Connection",
           "Please connect your wallet to continue. This enables secure payments and smart contract interactions.",
@@ -937,15 +939,21 @@ const styles = StyleSheet.create({
   walletSection: {
     paddingHorizontal: 24,
     marginBottom: 32,
+    alignItems: "flex-start",
+    width: "100%",
   },
   walletSectionTitle: {
     fontSize: 20,
     fontWeight: "600",
-    marginBottom: 16,
+    marginBottom: 8,
+    textAlign: "left",
+    alignSelf: "flex-start",
   },
   walletSectionDescription: {
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: 12,
+    textAlign: "left",
+    alignSelf: "flex-start",
   },
 });
