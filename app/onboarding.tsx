@@ -1,139 +1,608 @@
-import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import { useTheme } from "@/hooks/useTheme";
+import { useRouter } from "expo-router";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  Check,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  MapPin,
+  User,
+  Users,
+  Wallet,
+} from "lucide-react-native";
+import React, { useRef, useState } from "react";
+import {
+  Alert,
   Dimensions,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
   TouchableOpacity,
-  Image
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
-import { ArrowRight, Users, MapPin, MessageCircle, Heart } from 'lucide-react-native';
+  View,
+} from "react-native";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
-const onboardingData = [
+// Mock data for interests and languages
+const interests = [
+  "Conferences",
+  "Sightseeing",
+  "Festivals",
+  "Co-working",
+  "Adventure",
+  "Culture",
+  "Food",
+  "Music",
+  "Sports",
+  "Technology",
+];
+
+const languages = [
+  "English",
+  "Spanish",
+  "French",
+  "German",
+  "Italian",
+  "Portuguese",
+  "Russian",
+  "Chinese",
+  "Japanese",
+  "Korean",
+];
+
+// Onboarding steps
+const ONBOARDING_STEPS = {
+  WELCOME: 0,
+  SIGNUP: 1,
+  PROFILE: 2,
+  LENS: 3,
+  PRIVACY: 4,
+  FINAL: 5,
+};
+
+const onboardingSlides = [
   {
     id: 1,
-    title: 'Connect with Travelers',
-    subtitle: 'Meet people with similar travel plans and interests',
-    image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400',
+    title: "Find travelers attending the same event",
+    subtitle: "Connect with people who share your travel plans and interests",
     icon: Users,
   },
   {
     id: 2,
-    title: 'Discover New Places',
-    subtitle: 'Get insider tips and recommendations from fellow travelers',
-    image: 'https://images.pexels.com/photos/338515/pexels-photo-338515.jpeg?auto=compress&cs=tinysrgb&w=400',
+    title: "Plan and split bookings with smart contracts",
+    subtitle:
+      "Secure, transparent booking management with blockchain technology",
     icon: MapPin,
   },
   {
     id: 3,
-    title: 'Chat & Plan Together',
-    subtitle: 'Coordinate meetups and share experiences in real-time',
-    image: 'https://images.pexels.com/photos/1488315/pexels-photo-1488315.jpeg?auto=compress&cs=tinysrgb&w=400',
-    icon: MessageCircle,
-  },
-  {
-    id: 4,
-    title: 'Find Your Travel Buddy',
-    subtitle: 'Swipe through profiles and find your perfect travel companion',
-    image: 'https://images.pexels.com/photos/2846217/pexels-photo-2846217.jpeg?auto=compress&cs=tinysrgb&w=400',
-    icon: Heart,
+    title: "Pay with crypto or fiat",
+    subtitle: "Flexible payment options for modern travelers",
+    icon: Wallet,
   },
 ];
 
 export default function OnboardingScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentStep, setCurrentStep] = useState(ONBOARDING_STEPS.WELCOME);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const handleNext = () => {
-    if (currentIndex < onboardingData.length - 1) {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      scrollViewRef.current?.scrollTo({ x: nextIndex * width, animated: true });
+  // Signup form state
+  const [signupData, setSignupData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Profile form state
+  const [profileData, setProfileData] = useState({
+    username: "",
+    bio: "",
+    selectedInterests: [] as string[],
+    selectedLanguages: [] as string[],
+  });
+
+  // Privacy preferences state
+  const [privacySettings, setPrivacySettings] = useState({
+    onlyMatchesSeeProfile: false,
+    allowLocationSharing: false,
+    autoRejectNonVerified: true,
+    storeReviewsOnChain: false,
+  });
+
+  // Lens connection state
+  const [lensConnected, setLensConnected] = useState(false);
+  const [lensHandle, setLensHandle] = useState("");
+
+  const handleNextStep = () => {
+    if (currentStep < ONBOARDING_STEPS.FINAL) {
+      setCurrentStep(currentStep + 1);
     } else {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }
   };
 
-  const handleSkip = () => {
-    router.replace('/(tabs)');
+  const handlePrevStep = () => {
+    if (currentStep > ONBOARDING_STEPS.WELCOME) {
+      setCurrentStep(currentStep - 1);
+    }
   };
 
-  const onScroll = (event: any) => {
+  const handleSlideChange = (event: any) => {
     const slideSize = event.nativeEvent.layoutMeasurement.width;
     const index = Math.floor(event.nativeEvent.contentOffset.x / slideSize);
-    setCurrentIndex(index);
+    setCurrentSlide(index);
   };
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+  const toggleInterest = (interest: string) => {
+    setProfileData((prev) => ({
+      ...prev,
+      selectedInterests: prev.selectedInterests.includes(interest)
+        ? prev.selectedInterests.filter((i) => i !== interest)
+        : [...prev.selectedInterests, interest],
+    }));
+  };
+
+  const toggleLanguage = (language: string) => {
+    setProfileData((prev) => ({
+      ...prev,
+      selectedLanguages: prev.selectedLanguages.includes(language)
+        ? prev.selectedLanguages.filter((l) => l !== language)
+        : [...prev.selectedLanguages, language],
+    }));
+  };
+
+  const togglePrivacySetting = (setting: keyof typeof privacySettings) => {
+    setPrivacySettings((prev) => ({
+      ...prev,
+      [setting]: !prev[setting],
+    }));
+  };
+
+  const handleLensConnection = () => {
+    // Mock Lens connection
+    setLensConnected(true);
+    setLensHandle("john.lens");
+    Alert.alert("Success", "Lens Protocol profile connected successfully!");
+  };
+
+  const renderWelcomeScreen = () => (
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Text style={[styles.appTitle, { color: colors.primary }]}>CoPass</Text>
+        <Text style={[styles.appTagline, { color: colors.textSecondary }]}>
+          Connect with purpose-driven travelers
+        </Text>
+      </View>
+
       <ScrollView
         ref={scrollViewRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onScroll={onScroll}
+        onScroll={handleSlideChange}
         scrollEventThrottle={16}
+        style={styles.carousel}
       >
-        {onboardingData.map((item) => {
-          const IconComponent = item.icon;
+        {onboardingSlides.map((slide) => {
+          const IconComponent = slide.icon;
           return (
-            <View key={item.id} style={styles.slide}>
-              <View style={styles.imageContainer}>
-                <Image source={{ uri: item.image }} style={styles.image} />
-                <View style={[styles.iconOverlay, { backgroundColor: colors.primary }]}>
-                  <IconComponent size={32} color="#FFFFFF" />
-                </View>
+            <View key={slide.id} style={styles.slide}>
+              <View
+                style={[styles.slideIcon, { backgroundColor: colors.primary }]}
+              >
+                <IconComponent size={48} color="#FFFFFF" />
               </View>
-              <View style={styles.content}>
-                <Text style={[styles.title, { color: colors.text }]}>{item.title}</Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  {item.subtitle}
-                </Text>
-              </View>
+              <Text style={[styles.slideTitle, { color: colors.text }]}>
+                {slide.title}
+              </Text>
+              <Text
+                style={[styles.slideSubtitle, { color: colors.textSecondary }]}
+              >
+                {slide.subtitle}
+              </Text>
             </View>
           );
         })}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <View style={styles.pagination}>
-          {onboardingData.map((_, index) => (
-            <View
-              key={index}
+      <View style={styles.pagination}>
+        {onboardingSlides.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.dot,
+              {
+                backgroundColor:
+                  index === currentSlide ? colors.primary : colors.border,
+                width: index === currentSlide ? 24 : 8,
+              },
+            ]}
+          />
+        ))}
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+          onPress={handleNextStep}
+        >
+          <Text style={styles.primaryButtonText}>Get Started</Text>
+          <ArrowRight size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setCurrentStep(ONBOARDING_STEPS.SIGNUP)}
+        >
+          <Text style={[styles.secondaryButton, { color: colors.primary }]}>
+            Already have an account? Log in
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderSignupScreen = () => (
+    <View style={styles.screen}>
+      <View style={styles.screenHeader}>
+        <TouchableOpacity onPress={handlePrevStep} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.screenTitle, { color: colors.text }]}>
+          Create Account
+        </Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView
+        style={styles.formContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Sign Up Options
+        </Text>
+
+        {/* Email Signup */}
+        <View style={styles.signupSection}>
+          <Text style={[styles.subsectionTitle, { color: colors.text }]}>
+            Email Signup
+          </Text>
+
+          <View style={styles.inputContainer}>
+            <User size={20} color={colors.textSecondary} />
+            <TextInput
               style={[
-                styles.dot,
-                {
-                  backgroundColor: index === currentIndex ? colors.primary : colors.border,
-                  width: index === currentIndex ? 24 : 8,
-                },
+                styles.input,
+                { color: colors.text, borderColor: colors.border },
               ]}
+              placeholder="Full Name"
+              placeholderTextColor={colors.textSecondary}
+              value={signupData.fullName}
+              onChangeText={(text) =>
+                setSignupData((prev) => ({ ...prev, fullName: text }))
+              }
             />
-          ))}
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Mail size={20} color={colors.textSecondary} />
+            <TextInput
+              style={[
+                styles.input,
+                { color: colors.text, borderColor: colors.border },
+              ]}
+              placeholder="Email"
+              placeholderTextColor={colors.textSecondary}
+              value={signupData.email}
+              onChangeText={(text) =>
+                setSignupData((prev) => ({ ...prev, email: text }))
+              }
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Lock size={20} color={colors.textSecondary} />
+            <TextInput
+              style={[
+                styles.input,
+                { color: colors.text, borderColor: colors.border },
+              ]}
+              placeholder="Password"
+              placeholderTextColor={colors.textSecondary}
+              value={signupData.password}
+              onChangeText={(text) =>
+                setSignupData((prev) => ({ ...prev, password: text }))
+              }
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              {showPassword ? (
+                <EyeOff size={20} color={colors.textSecondary} />
+              ) : (
+                <Eye size={20} color={colors.textSecondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Lock size={20} color={colors.textSecondary} />
+            <TextInput
+              style={[
+                styles.input,
+                { color: colors.text, borderColor: colors.border },
+              ]}
+              placeholder="Confirm Password"
+              placeholderTextColor={colors.textSecondary}
+              value={signupData.confirmPassword}
+              onChangeText={(text) =>
+                setSignupData((prev) => ({ ...prev, confirmPassword: text }))
+              }
+              secureTextEntry={!showConfirmPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              {showConfirmPassword ? (
+                <EyeOff size={20} color={colors.textSecondary} />
+              ) : (
+                <Eye size={20} color={colors.textSecondary} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.buttons}>
-          <TouchableOpacity onPress={handleSkip}>
-            <Text style={[styles.skipText, { color: colors.textSecondary }]}>Skip</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.nextButton, { backgroundColor: colors.primary }]}
-            onPress={handleNext}
+        {/* OAuth Options */}
+        <View style={styles.signupSection}>
+          <Text style={[styles.subsectionTitle, { color: colors.text }]}>
+            Quick Signup
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.oauthButton, { borderColor: colors.border }]}
           >
-            <Text style={styles.nextButtonText}>
-              {currentIndex === onboardingData.length - 1 ? 'Get Started' : 'Next'}
+            <Text style={[styles.oauthButtonText, { color: colors.text }]}>
+              Continue with Google
             </Text>
-            <ArrowRight size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
+
+        {/* Web3 Wallet */}
+        <View style={styles.signupSection}>
+          <Text style={[styles.subsectionTitle, { color: colors.text }]}>
+            Web3 Wallet
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.walletButton, { borderColor: colors.border }]}
+          >
+            <Wallet size={20} color={colors.text} />
+            <Text style={[styles.walletButtonText, { color: colors.text }]}>
+              Connect Wallet
+            </Text>
+            <ExternalLink size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <Text
+            style={[styles.walletDescription, { color: colors.textSecondary }]}
+          >
+            Connect MetaMask, WalletConnect, or other supported wallets
+          </Text>
+        </View>
+      </ScrollView>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+          onPress={handleNextStep}
+        >
+          <Text style={styles.primaryButtonText}>Continue</Text>
+          <ArrowRight size={20} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
+    </View>
+  );
+
+  const renderProfileScreen = () => (
+    <View style={styles.screen}>
+      <View style={styles.screenHeader}>
+        <TouchableOpacity onPress={handlePrevStep} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.screenTitle, { color: colors.text }]}>
+          Profile Setup
+        </Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView
+        style={styles.formContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Tell us a bit about your travel interests
+        </Text>
+
+        {/* Profile Picture */}
+        <View style={styles.profilePictureSection}>
+          <TouchableOpacity
+            style={[styles.profilePicture, { borderColor: colors.border }]}
+          >
+            <Camera size={24} color={colors.textSecondary} />
+            <Text
+              style={[
+                styles.profilePictureText,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Add Photo
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Username */}
+        <View style={styles.inputContainer}>
+          <User size={20} color={colors.textSecondary} />
+          <TextInput
+            style={[
+              styles.input,
+              { color: colors.text, borderColor: colors.border },
+            ]}
+            placeholder="Username"
+            placeholderTextColor={colors.textSecondary}
+            value={profileData.username}
+            onChangeText={(text) =>
+              setProfileData((prev) => ({ ...prev, username: text }))
+            }
+            autoCapitalize="none"
+          />
+        </View>
+
+        {/* Bio */}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[
+              styles.textArea,
+              { color: colors.text, borderColor: colors.border },
+            ]}
+            placeholder="Short bio (up to 250 characters)"
+            placeholderTextColor={colors.textSecondary}
+            value={profileData.bio}
+            onChangeText={(text) =>
+              setProfileData((prev) => ({ ...prev, bio: text }))
+            }
+            multiline
+            numberOfLines={3}
+            maxLength={250}
+          />
+        </View>
+
+        {/* Interests */}
+        <View style={styles.section}>
+          <Text style={[styles.subsectionTitle, { color: colors.text }]}>
+            Interests
+          </Text>
+          <View style={styles.chipContainer}>
+            {interests.map((interest) => (
+              <TouchableOpacity
+                key={interest}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: profileData.selectedInterests.includes(
+                      interest
+                    )
+                      ? colors.primary
+                      : colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => toggleInterest(interest)}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    {
+                      color: profileData.selectedInterests.includes(interest)
+                        ? "#FFFFFF"
+                        : colors.text,
+                    },
+                  ]}
+                >
+                  {interest}
+                </Text>
+                {profileData.selectedInterests.includes(interest) && (
+                  <Check size={16} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Languages */}
+        <View style={styles.section}>
+          <Text style={[styles.subsectionTitle, { color: colors.text }]}>
+            Preferred Languages
+          </Text>
+          <View style={styles.chipContainer}>
+            {languages.slice(0, 8).map((language) => (
+              <TouchableOpacity
+                key={language}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: profileData.selectedLanguages.includes(
+                      language
+                    )
+                      ? colors.primary
+                      : colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => toggleLanguage(language)}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    {
+                      color: profileData.selectedLanguages.includes(language)
+                        ? "#FFFFFF"
+                        : colors.text,
+                    },
+                  ]}
+                >
+                  {language}
+                </Text>
+                {profileData.selectedLanguages.includes(language) && (
+                  <Check size={16} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+          onPress={handleNextStep}
+        >
+          <Text style={styles.primaryButtonText}>Continue</Text>
+          <ArrowRight size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderCurrentScreen = () => {
+    switch (currentStep) {
+      case ONBOARDING_STEPS.WELCOME:
+        return renderWelcomeScreen();
+      case ONBOARDING_STEPS.SIGNUP:
+        return renderSignupScreen();
+      case ONBOARDING_STEPS.PROFILE:
+        return renderProfileScreen();
+      default:
+        return renderWelcomeScreen();
+    }
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {renderCurrentScreen()}
     </View>
   );
 }
@@ -142,62 +611,56 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  screen: {
+    flex: 1,
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
+  },
+  header: {
+    alignItems: "center",
+    paddingHorizontal: 24,
+    marginBottom: 40,
+  },
+  appTitle: {
+    fontSize: 32,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  appTagline: {
+    fontSize: 16,
+    textAlign: "center",
+  },
+  carousel: {
+    flex: 1,
+  },
   slide: {
     width,
-    flex: 1,
+    alignItems: "center",
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 40,
   },
-  imageContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    marginBottom: 60,
+  slideIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 32,
   },
-  image: {
-    width: width - 80,
-    height: 300,
-    borderRadius: 20,
-  },
-  iconOverlay: {
-    position: 'absolute',
-    bottom: -20,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  content: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
+  slideTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 16,
   },
-  subtitle: {
+  slideSubtitle: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
   pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 40,
   },
   dot: {
@@ -205,26 +668,151 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginHorizontal: 4,
   },
-  buttons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  skipText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  nextButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  screenHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
+    marginBottom: 32,
   },
-  nextButtonText: {
-    color: '#FFFFFF',
+  backButton: {
+    padding: 8,
+  },
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  formContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 24,
+  },
+  signupSection: {
+    marginBottom: 32,
+  },
+  subsectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "500",
+    marginBottom: 16,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  input: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+  },
+  oauthButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  oauthButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  walletButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginBottom: 8,
+  },
+  walletButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 12,
+    flex: 1,
+  },
+  walletDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  profilePictureSection: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  profilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  profilePictureText: {
+    fontSize: 14,
+    marginTop: 8,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    fontSize: 16,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  section: {
+    marginBottom: 32,
+  },
+  chipContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  buttonContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  primaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
     marginRight: 8,
+  },
+  secondaryButton: {
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
   },
 });
