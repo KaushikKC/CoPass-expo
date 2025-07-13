@@ -85,6 +85,11 @@ export default function AddTripScreen() {
   const [showPreferences, setShowPreferences] = useState(false);
   const [showCustomPurpose, setShowCustomPurpose] = useState(false);
   const [customPurpose, setCustomPurpose] = useState("");
+  const [showCustomDateInput, setShowCustomDateInput] = useState(false);
+  const [customDateInput, setCustomDateInput] = useState("");
+  const [customDateType, setCustomDateType] = useState<"start" | "end">(
+    "start"
+  );
 
   const [tripData, setTripData] = useState<TripData>({
     destination: {
@@ -116,19 +121,127 @@ export default function AddTripScreen() {
   };
 
   const handleDateSelect = (type: "start" | "end") => {
-    // Mock date selection - in real app, use a date picker
-    const today = new Date();
-    const date = new Date(
-      today.getTime() + (type === "start" ? 7 : 14) * 24 * 60 * 60 * 1000
+    // Interactive date picker implementation
+    Alert.alert(
+      `Select ${type === "start" ? "Start" : "End"} Date`,
+      "Choose a date:",
+      [
+        {
+          text: "Today",
+          onPress: () => {
+            const today = new Date();
+            setTripData((prev) => ({
+              ...prev,
+              dates: {
+                ...prev.dates,
+                [type]: today,
+              },
+            }));
+          },
+        },
+        {
+          text: "Tomorrow",
+          onPress: () => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            setTripData((prev) => ({
+              ...prev,
+              dates: {
+                ...prev.dates,
+                [type]: tomorrow,
+              },
+            }));
+          },
+        },
+        {
+          text: "Next Week",
+          onPress: () => {
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            setTripData((prev) => ({
+              ...prev,
+              dates: {
+                ...prev.dates,
+                [type]: nextWeek,
+              },
+            }));
+          },
+        },
+        {
+          text: "Next Month",
+          onPress: () => {
+            const nextMonth = new Date();
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            setTripData((prev) => ({
+              ...prev,
+              dates: {
+                ...prev.dates,
+                [type]: nextMonth,
+              },
+            }));
+          },
+        },
+        {
+          text: "Custom Date",
+          onPress: () => {
+            setCustomDateType(type);
+            setCustomDateInput("");
+            setShowCustomDateInput(true);
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]
     );
+  };
+
+  const handleCustomDateSubmit = () => {
+    if (!customDateInput.trim()) {
+      Alert.alert("Error", "Please enter a date");
+      return;
+    }
+
+    // Try multiple date formats
+    const dateFormats = [
+      /^\d{1,2}\/\d{1,2}\/\d{4}$/, // MM/DD/YYYY
+      /^\d{4}-\d{1,2}-\d{1,2}$/, // YYYY-MM-DD
+      /^\d{1,2}-\d{1,2}-\d{4}$/, // MM-DD-YYYY
+    ];
+
+    let customDate: Date | null = null;
+
+    for (const format of dateFormats) {
+      if (format.test(customDateInput)) {
+        customDate = new Date(customDateInput);
+        break;
+      }
+    }
+
+    if (!customDate || isNaN(customDate.getTime())) {
+      Alert.alert("Error", "Please enter a valid date in MM/DD/YYYY format");
+      return;
+    }
+
+    // Validate that the date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (customDate < today) {
+      Alert.alert("Error", "Please select a future date");
+      return;
+    }
 
     setTripData((prev) => ({
       ...prev,
       dates: {
         ...prev.dates,
-        [type]: date,
+        [customDateType]: customDate,
       },
     }));
+
+    setShowCustomDateInput(false);
+    setCustomDateInput("");
   };
 
   const togglePurpose = (purpose: string) => {
@@ -142,12 +255,26 @@ export default function AddTripScreen() {
 
   const addCustomPurpose = () => {
     if (customPurpose.trim()) {
+      // Add to both the trip data and the purpose options list
+      const newPurpose = customPurpose.trim();
       setTripData((prev) => ({
         ...prev,
-        purpose: [...prev.purpose, customPurpose.trim()],
+        purpose: [...prev.purpose, newPurpose],
       }));
+
+      // Also add to the global purpose options if it's not already there
+      if (!purposeOptions.includes(newPurpose)) {
+        purposeOptions.push(newPurpose);
+      }
+
       setCustomPurpose("");
       setShowCustomPurpose(false);
+      Alert.alert(
+        "Success",
+        `Custom purpose "${newPurpose}" added successfully!`
+      );
+    } else {
+      Alert.alert("Error", "Please enter a purpose name");
     }
   };
 
@@ -344,6 +471,35 @@ export default function AddTripScreen() {
             )}
           </TouchableOpacity>
         ))}
+
+        {/* Show selected custom purposes */}
+        {tripData.purpose
+          .filter((p) => !purposeOptions.includes(p))
+          .map((purpose) => (
+            <TouchableOpacity
+              key={purpose}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => togglePurpose(purpose)}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  {
+                    color: "#FFFFFF",
+                  },
+                ]}
+              >
+                {purpose}
+              </Text>
+              <Check size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          ))}
       </View>
 
       <TouchableOpacity
@@ -713,6 +869,49 @@ export default function AddTripScreen() {
               onPress={addCustomPurpose}
             >
               <Text style={styles.modalButtonText}>Add Purpose</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Date Input Modal */}
+      <Modal
+        visible={showCustomDateInput}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCustomDateInput(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[styles.modalContent, { backgroundColor: colors.surface }]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Enter Date
+              </Text>
+              <TouchableOpacity onPress={() => setShowCustomDateInput(false)}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={[
+                styles.modalInput,
+                { color: colors.text, borderColor: colors.border },
+              ]}
+              placeholder="Enter date (MM/DD/YYYY)"
+              placeholderTextColor={colors.textSecondary}
+              value={customDateInput}
+              onChangeText={setCustomDateInput}
+              keyboardType="numeric"
+              maxLength={10}
+            />
+
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.primary }]}
+              onPress={handleCustomDateSubmit}
+            >
+              <Text style={styles.modalButtonText}>Set Date</Text>
             </TouchableOpacity>
           </View>
         </View>

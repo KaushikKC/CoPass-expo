@@ -10,7 +10,18 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.CoPassexpo"
+      "bundleIdentifier": "com.anonymous.CoPassexpo",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "metamask",
+          "trust",
+          "safe",
+          "rainbow",
+          "uniswap",
+          "coinbase",
+          "walletconnect"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {

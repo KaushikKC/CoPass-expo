@@ -1,11 +1,12 @@
+import WalletConnectButton from "@/components/WalletConnectButton";
 import { useTheme } from "@/hooks/useTheme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
   ArrowRight,
   Camera,
   Check,
-  ExternalLink,
   Eye,
   EyeOff,
   Lock,
@@ -19,6 +20,7 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -27,6 +29,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { PhotoResult, photoService } from "../services/photoService";
 
 const { width } = Dimensions.get("window");
 
@@ -126,11 +129,50 @@ export default function OnboardingScreen() {
   const [lensConnected, setLensConnected] = useState(false);
   const [lensHandle, setLensHandle] = useState("");
 
+  // Add wallet and photo state
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<PhotoResult | null>(null);
+  const [isWalletConnected, setIsWalletConnected] = useState(false);
+
   const handleNextStep = () => {
+    // Validate current step before proceeding
+    if (currentStep === ONBOARDING_STEPS.SIGNUP) {
+      if (!signupData.fullName || !signupData.email || !signupData.password) {
+        Alert.alert("Error", "Please fill in all required fields");
+        return;
+      }
+      if (signupData.password !== signupData.confirmPassword) {
+        Alert.alert("Error", "Passwords do not match");
+        return;
+      }
+    }
+
+    if (currentStep === ONBOARDING_STEPS.PROFILE) {
+      if (!profileData.username || profileData.selectedInterests.length === 0) {
+        Alert.alert(
+          "Error",
+          "Please enter a username and select at least one interest"
+        );
+        return;
+      }
+      // Optional: Check if wallet is connected
+      if (!isWalletConnected) {
+        Alert.alert(
+          "Wallet Connection",
+          "Please connect your wallet to continue. This enables secure payments and smart contract interactions.",
+          [
+            { text: "Skip for now", onPress: () => completeOnboarding() },
+            { text: "Connect Wallet", style: "cancel" },
+          ]
+        );
+        return;
+      }
+    }
+
     if (currentStep < ONBOARDING_STEPS.FINAL) {
       setCurrentStep(currentStep + 1);
     } else {
-      router.replace("/(tabs)");
+      completeOnboarding();
     }
   };
 
@@ -176,6 +218,51 @@ export default function OnboardingScreen() {
     setLensConnected(true);
     setLensHandle("john.lens");
     Alert.alert("Success", "Lens Protocol profile connected successfully!");
+  };
+
+  // Real wallet connection handler using AppKit
+  const handleWalletConnection = () => {
+    // AppKit handles the connection automatically when the button is clicked
+    // No need for manual handling
+  };
+
+  // Real photo upload handler
+  const handlePhotoUpload = async () => {
+    try {
+      Alert.alert("Add Photo", "Choose photo source:", [
+        {
+          text: "Camera",
+          onPress: async () => {
+            const photo = await photoService.takePhoto();
+            if (photo) setProfilePhoto(photo);
+          },
+        },
+        {
+          text: "Gallery",
+          onPress: async () => {
+            const photo = await photoService.pickFromGallery();
+            if (photo) setProfilePhoto(photo);
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    } catch (error: any) {
+      Alert.alert("Photo Error", error.message || "Failed to add photo");
+    }
+  };
+
+  const completeOnboarding = async () => {
+    try {
+      // Save onboarding completion status
+      await AsyncStorage.setItem("hasCompletedOnboarding", "true");
+
+      // Navigate to home page
+      router.replace("/(tabs)");
+    } catch (error) {
+      console.error("Error saving onboarding status:", error);
+      // Still navigate even if saving fails
+      router.replace("/(tabs)");
+    }
   };
 
   const renderWelcomeScreen = () => (
@@ -243,9 +330,7 @@ export default function OnboardingScreen() {
           <ArrowRight size={20} color="#FFFFFF" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => setCurrentStep(ONBOARDING_STEPS.SIGNUP)}
-        >
+        <TouchableOpacity onPress={() => router.push("/login")}>
           <Text style={[styles.secondaryButton, { color: colors.primary }]}>
             Already have an account? Log in
           </Text>
@@ -380,27 +465,21 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Web3 Wallet */}
-        <View style={styles.signupSection}>
-          <Text style={[styles.subsectionTitle, { color: colors.text }]}>
-            Web3 Wallet
+        {/* Wallet Connection Section */}
+        <View style={styles.walletSection}>
+          <Text style={[styles.walletSectionTitle, { color: colors.text }]}>
+            Connect Your Wallet
           </Text>
-
-          <TouchableOpacity
-            style={[styles.walletButton, { borderColor: colors.border }]}
-          >
-            <Wallet size={20} color={colors.text} />
-            <Text style={[styles.walletButtonText, { color: colors.text }]}>
-              Connect Wallet
-            </Text>
-            <ExternalLink size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-
           <Text
-            style={[styles.walletDescription, { color: colors.textSecondary }]}
+            style={[
+              styles.walletSectionDescription,
+              { color: colors.textSecondary },
+            ]}
           >
-            Connect MetaMask, WalletConnect, or other supported wallets
+            Connect your wallet to enable secure payments and smart contract
+            interactions
           </Text>
+          <WalletConnectButton />
         </View>
       </ScrollView>
 
@@ -440,17 +519,38 @@ export default function OnboardingScreen() {
         <View style={styles.profilePictureSection}>
           <TouchableOpacity
             style={[styles.profilePicture, { borderColor: colors.border }]}
+            onPress={handlePhotoUpload}
           >
-            <Camera size={24} color={colors.textSecondary} />
-            <Text
-              style={[
-                styles.profilePictureText,
-                { color: colors.textSecondary },
-              ]}
-            >
-              Add Photo
-            </Text>
+            {profilePhoto ? (
+              <Image
+                source={{ uri: profilePhoto.uri }}
+                style={styles.profilePictureImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <>
+                <Camera size={24} color={colors.textSecondary} />
+                <Text
+                  style={[
+                    styles.profilePictureText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Add Photo
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
+          {profilePhoto && (
+            <TouchableOpacity
+              style={styles.changePhotoButton}
+              onPress={handlePhotoUpload}
+            >
+              <Text style={[styles.changePhotoText, { color: colors.primary }]}>
+                Change Photo
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Username */}
@@ -699,6 +799,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 16,
   },
+  sectionDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -757,9 +862,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  profilePictureImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
   profilePictureText: {
     fontSize: 14,
     marginTop: 8,
+  },
+  changePhotoButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  changePhotoText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   textArea: {
     borderWidth: 1,
@@ -814,5 +933,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     textAlign: "center",
+  },
+  walletSection: {
+    paddingHorizontal: 24,
+    marginBottom: 32,
+  },
+  walletSectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  walletSectionDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
   },
 });

@@ -1,3 +1,4 @@
+import WalletConnectButton from "@/components/WalletConnectButton";
 import { mockProfile, mockTrips } from "@/data/mockData";
 import { useTheme } from "@/hooks/useTheme";
 import { useRouter } from "expo-router";
@@ -29,10 +30,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { PhotoResult, photoService } from "../../services/photoService";
+import { walletService } from "../../services/walletService";
 
 interface ProfileSection {
   id: string;
@@ -51,6 +55,12 @@ export default function ProfileScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(true); // For demo, showing own profile
+
+  // Add wallet and photo state
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<PhotoResult | null>(null);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [username, setUsername] = useState(mockProfile.name || "");
 
   // Profile sections with visibility controls
   const [profileSections, setProfileSections] = useState<ProfileSection[]>([
@@ -124,6 +134,120 @@ export default function ProfileScreen() {
           : section
       )
     );
+  };
+
+  // Real wallet connect/disconnect
+  const handleWalletConnection = async () => {
+    try {
+      Alert.alert("Connect Wallet", "Choose your wallet:", [
+        {
+          text: "MetaMask",
+          onPress: async () => {
+            try {
+              const connection = await walletService.connectWallet("metamask");
+              setWalletAddress(connection.address);
+              Alert.alert(
+                "MetaMask Connected",
+                `Address: ${connection.address}`
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "MetaMask Error",
+                error.message || "Failed to connect MetaMask"
+              );
+            }
+          },
+        },
+        {
+          text: "WalletConnect",
+          onPress: async () => {
+            try {
+              const connection = await walletService.connectWallet(
+                "walletconnect"
+              );
+              setWalletAddress(connection.address);
+              Alert.alert(
+                "WalletConnect Connected",
+                `Address: ${connection.address}`
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "WalletConnect Error",
+                error.message || "Failed to connect WalletConnect"
+              );
+            }
+          },
+        },
+        {
+          text: "Coinbase Wallet",
+          onPress: async () => {
+            try {
+              const connection = await walletService.connectWallet("coinbase");
+              setWalletAddress(connection.address);
+              Alert.alert(
+                "Coinbase Wallet Connected",
+                `Address: ${connection.address}`
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "Coinbase Wallet Error",
+                error.message || "Failed to connect Coinbase Wallet"
+              );
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    } catch (error: any) {
+      Alert.alert(
+        "Wallet Connect Error",
+        error.message || "Failed to connect wallet"
+      );
+    }
+  };
+  const handleWalletDisconnect = async () => {
+    try {
+      await walletService.disconnectWallet();
+      setWalletAddress(null);
+      Alert.alert("Wallet Disconnected");
+    } catch (error: any) {
+      Alert.alert(
+        "Wallet Disconnect Error",
+        error.message || "Failed to disconnect wallet"
+      );
+    }
+  };
+
+  // Real photo upload/edit
+  const handlePhotoUpload = async () => {
+    try {
+      Alert.alert("Edit Photo", "Choose photo source:", [
+        {
+          text: "Camera",
+          onPress: async () => {
+            const photo = await photoService.takePhoto();
+            if (photo) setProfilePhoto(photo);
+          },
+        },
+        {
+          text: "Gallery",
+          onPress: async () => {
+            const photo = await photoService.pickFromGallery();
+            if (photo) setProfilePhoto(photo);
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    } catch (error: any) {
+      Alert.alert("Photo Error", error.message || "Failed to add photo");
+    }
+  };
+
+  // Username save
+  const handleSaveUsername = () => {
+    setEditingUsername(false);
+    // Save username to backend or state as needed
+    Alert.alert("Username Updated", `New username: ${username}`);
   };
 
   const renderAboutTab = () => (
@@ -616,28 +740,66 @@ export default function ProfileScreen() {
           style={[styles.profileHeader, { backgroundColor: colors.surface }]}
         >
           <View style={styles.profileImageContainer}>
-            <Image
-              source={{ uri: mockProfile.profileImage }}
-              style={styles.profileImage}
-            />
-            {isOwnProfile && (
-              <TouchableOpacity
-                style={[
-                  styles.editImageButton,
-                  { backgroundColor: colors.primary },
-                ]}
-              >
+            <TouchableOpacity
+              style={[
+                styles.editImageButton,
+                { backgroundColor: colors.primary },
+              ]}
+              onPress={handlePhotoUpload}
+            >
+              {profilePhoto ? (
+                <Image
+                  source={{ uri: profilePhoto.uri }}
+                  style={styles.profileImage}
+                />
+              ) : (
                 <Edit3 size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
+              )}
+            </TouchableOpacity>
           </View>
 
           <View style={styles.profileInfo}>
             <View style={styles.nameRow}>
-              <Text style={[styles.displayName, { color: colors.text }]}>
-                {mockProfile.name}
-              </Text>
+              {editingUsername ? (
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                >
+                  <TextInput
+                    style={{
+                      color: colors.text,
+                      borderBottomWidth: 1,
+                      borderColor: colors.primary,
+                      minWidth: 100,
+                    }}
+                    value={username}
+                    onChangeText={setUsername}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity onPress={handleSaveUsername}>
+                    <CheckCircle size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => setEditingUsername(true)}>
+                  <Text style={[styles.displayName, { color: colors.text }]}>
+                    {username}
+                  </Text>
+                </TouchableOpacity>
+              )}
               <CheckCircle size={20} color={colors.primary} />
+            </View>
+
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            >
+              <WalletConnectButton
+                onConnect={() => {
+                  console.log("Wallet connected successfully");
+                }}
+                onDisconnect={() => {
+                  console.log("Wallet disconnected");
+                }}
+              />
             </View>
 
             <Text style={[styles.username, { color: colors.textSecondary }]}>
