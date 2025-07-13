@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  CreditCard,
   File,
   Image as ImageIcon,
   Mic,
@@ -372,6 +373,18 @@ export default function ChatScreen() {
     </View>
   );
 
+  const renderSharedBookingButton = () => (
+    <TouchableOpacity
+      style={[styles.sharedBookingButton, { backgroundColor: colors.primary }]}
+      onPress={() =>
+        Alert.alert("Shared Booking", "Shared booking feature coming soon!")
+      }
+    >
+      <CreditCard size={16} color="#FFFFFF" />
+      <Text style={styles.sharedBookingButtonText}>Propose Shared Booking</Text>
+    </TouchableOpacity>
+  );
+
   const renderInputToolbar = () => (
     <View
       style={[
@@ -462,6 +475,8 @@ export default function ChatScreen() {
             </Text>
           </View>
         )}
+
+        {renderSharedBookingButton()}
       </KeyboardAvoidingView>
 
       {renderInputToolbar()}
@@ -990,5 +1005,20 @@ const styles = StyleSheet.create({
   },
   expiryOptionText: {
     fontSize: 14,
+  },
+  sharedBookingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  sharedBookingButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
